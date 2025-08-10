@@ -2888,12 +2888,31 @@ float			fps = gFramesPerSecondFrac;
 
 	if (gPlayerInfo[playerNum].nitroTimer > 0.0f)
 	{
-		// Prevents phantom driving if nitro is used when reversing
-		gPlayerInfo[playerNum].accelBackwards = false; 
+		bool isPressingForward = GetControlState(playerNum, kControlBit_Forward);
+		bool isPressingBackward = GetControlState(playerNum, kControlBit_Backward);
+
+		// Determine nitro direction:
+		// (forward takes priority if both are pressed)
+		if (isPressingForward || isPressingBackward)
+		{
+			if (isPressingForward) 
+			{
+				gPlayerInfo[playerNum].accelBackwards = false;
+				thrust = NITRO_ACCELERATION; // forward nitros thrust
+			}
+			else // Only pressing backward
+			{
+				gPlayerInfo[playerNum].accelBackwards = true;
+				thrust = -NITRO_ACCELERATION; // reverse nitros thrust
+			}
+		}
+		else // no nitros thrust
+		{
+			thrust = 0;
+		}
 
 		gPlayerInfo[playerNum].braking = false;
-		gPlayerInfo[playerNum].gasPedalDown = true;
-		thrust = NITRO_ACCELERATION;
+		gPlayerInfo[playerNum].gasPedalDown = (thrust != 0); // Gas pedal only if actually thrusting
 	}
 
 					/* NO NITRO */
