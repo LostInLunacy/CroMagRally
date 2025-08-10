@@ -443,6 +443,14 @@ long	oldLeft,oldRight,oldFront,oldBack,oldTop,oldBottom;
 	gFramesPerSecondFrac *= 1.0f / (float)numPasses;					// adjust frame rate during motion and collision
 	gFramesPerSecond *= 1.0f / (float)numPasses;
 
+	// Adding this cheat for levels besides Atlantis
+	if (GetKeyState(SDL_SCANCODE_C)
+		&& GetKeyState(SDL_SCANCODE_P)
+		&& GetKeyState(SDL_SCANCODE_U))	//---------- hack to make player a CPU
+	{
+		SDL_Log("Engage submarine autopilot");
+		gAutoPilot = true;
+	}
 
 			/*******************/
 			/* DO IT IN PASSES */
