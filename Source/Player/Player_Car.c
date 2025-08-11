@@ -300,13 +300,42 @@ void SetPhysicsForVehicleType(short playerNum)
 				/* SPEED  */
 
 	if (gTrackNum == TRACK_NUM_ATLANTIS)				// rigged speed in subs
-		info->maxSpeed = MAX_SUBMARINE_SPEED + RandomFloat()*200.0f;
-	else
-		info->maxSpeed = 3000.0f + speed * 3000.0f;
-
-	if ((gPlayerInfo[playerNum].isComputer) && (gGamePrefs.difficulty == DIFFICULTY_SIMPLISTIC))	// make CPU cars slower
 	{
-		info->maxSpeed *= .7f;
+		float speedMultiplier = 1.0f; // Base multiplier
+
+		if (gPlayerInfo[playerNum].isComputer)
+		{
+			// Experimenting with skin-based buffs
+			// which roughly reflect the original game
+			switch (gPlayerInfo[playerNum].skin)
+			{
+				case CAVEMAN_SKIN_GREEN:
+					speedMultiplier *= 1.16f;
+					break;
+				case CAVEMAN_SKIN_RED:
+					speedMultiplier *= 1.08f;
+					break;
+				case CAVEMAN_SKIN_BLUE:
+					speedMultiplier *= 1.04f;
+					break;
+				default: 
+					break;
+			}
+
+			// Apply difficulty-based buffs
+			if (gGamePrefs.difficulty == DIFFICULTY_HARD)
+				speedMultiplier *= 1.16;
+			else if (gGamePrefs.difficulty == DIFFICULTY_MEDIUM)
+				speedMultiplier *= 1.08f;
+			else if (gGamePrefs.difficulty == DIFFICULTY_EASY)
+				speedMultiplier *= 1.04f;
+		}
+		
+		info->maxSpeed = (MAX_SUBMARINE_SPEED * speedMultiplier) + RandomFloat();		
+	}
+	else
+	{
+		info->maxSpeed = 3000.0f + speed * 3000.0f;
 	}
 
 				/* ACCELERATION  */

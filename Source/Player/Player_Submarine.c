@@ -259,7 +259,15 @@ OGLVector3D		aimVec;
 	}
 	else
 	{
-		float	maxSpeed = gPlayerInfo[playerNum].carStats.maxSpeed + ((float)gPlayerInfo[playerNum].place * 100.0f);
+		float positionBoost = (float)gPlayerInfo[playerNum].place * 100.0f;
+
+			/* Give computers 5% greater position boost */
+		// This compensates for relative human advantage on Atlantis
+		if ((gPlayerInfo[playerNum].isComputer || gAutoPilot) && gGamePrefs.difficulty >= DIFFICULTY_SIMPLISTIC) {
+			positionBoost *= 1.05f;
+		}
+
+		float maxSpeed = gPlayerInfo[playerNum].carStats.maxSpeed + positionBoost;
 
 		if (gPlayerInfo[playerNum].nitroTimer > 0.0f)			// see if give nitro boost
 			maxSpeed *= 1.4f;
