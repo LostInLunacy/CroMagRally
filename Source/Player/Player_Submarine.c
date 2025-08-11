@@ -41,6 +41,8 @@ static void AlignPropellerOnSubmarine(ObjNode *theCar);
 
 #define	SUBMARINE_FRICTION		3000.0f
 
+// Time sub spends evading
+#define SUB_STUCK_EVASION_DURATION	 4.0f  
 
 /*********************/
 /*    VARIABLES      */
@@ -542,6 +544,8 @@ float			fps = gFramesPerSecondFrac;
 float			dot;
 OGLVector2D		pathVec;
 short			avoidTurn;
+static float    stuckTimer[MAX_PLAYERS] = {0};      // Per-player stuck timer
+static float    sideForce[MAX_PLAYERS] = {0};       // Persistent sideways force during evasion
 
     player = theNode->PlayerNum;
     gPlayerInfo[player].controlBits = 0;                                     // assume nothing
@@ -560,34 +564,31 @@ short			avoidTurn;
 		if (gPlayerInfo[player].oldPositionTimer <= 0.0f)					// see if time to do the check
 		{
 			gPlayerInfo[player].oldPositionTimer += POSITION_TIMER;			// reset timer
-
+			
+			// Check if submarine hasn't moved enough (1000 units seems reasonable given the consistent speed on Atlantis)
 			if (CalcDistance3D(gPlayerInfo[player].oldPosition.x, gPlayerInfo[player].oldPosition.y, gPlayerInfo[player].oldPosition.z,
-								gCoord.x, gCoord.y, gCoord.z) < 100.0f)		// see if player isnt moving
+								gCoord.x, gCoord.y, gCoord.z) < 1000.0f) 
 			{
-				if (gPlayerInfo[player].reverseTimer > 0.0f)					// if was reversing then go forward again
-					gPlayerInfo[player].reverseTimer = 0;
-				else
-					gPlayerInfo[player].reverseTimer = 4.0f;					// try moving backwards to get unstuck
+				// Submarine is considered "stuck", so set evasion timer
+				stuckTimer[player] = SUB_STUCK_EVASION_DURATION; 
 			}
 			else
 			{
-				gPlayerInfo[player].reverseTimer = 0;						// player is NOT stuck, so go forward
+				stuckTimer[player] = 0.0f;
 			}
 
 			gPlayerInfo[player].oldPosition = gCoord;						// remember position
 		}
 	}
 
-
-
-
-			/*************************************/
-			/* DO STEERING VIA PATH OR AVOIDANCE */
-			/*************************************/
-
-		/* SEE IF THERE ARE ANY OBJECTS AHEAD THAT WE SHOULD AVOID */
-
-	avoidTurn = DoCPU_AvoidObjects(theNode);
+			/***************************/
+			/* PRIMARY STEERING LOGIC  */
+			/*  (ordered by priority)  */
+			/***************************/
+			
+		/* 1. OBJECT AVOIDANCE */
+	
+	avoidTurn = DoCPU_AvoidObjects(theNode); // See if there are any objects ahead that we should avoid
 	if (avoidTurn != 0)
 	{
 		if (avoidTurn == -1)
@@ -596,53 +597,84 @@ short			avoidTurn;
 			gPlayerInfo[player].analogSteering.x = 1.0f;
 	}
 
-			/********************/
-			/* DO PATH STEERING */
-			/********************/
+		/* 2. STUCK EVASION */
 
-	else
-	{
-		if (CalcPathVectorFromCoord(gCoord.x, gCoord.y, gCoord.z, &pathVec))				// get path vector
-		{
-		    float       cross,r;
-		    OGLVector2D aimVec;
+    else if (stuckTimer[player] > 0.0f)
+    {
+        // Continuous upward thrust
+        gPlayerInfo[player].analogSteering.y = 1.0f;
+        
+        // Update sideways force every 0.5 seconds for consistency
+        if ((int)(stuckTimer[player] * 2) != (int)((stuckTimer[player] - fps) * 2))
+        {
+            sideForce[player] = (rand()%200)/100.0f - 1.0f; // Random value between -1.0 and +1.0
+        }
+        
+        // Apply stronger sideways force (2x normal steering)
+        gPlayerInfo[player].analogSteering.x = sideForce[player] * 2.0f;
+        
+        // Check if we've become unstuck
+        if (CalcDistance3D(gPlayerInfo[player].oldPosition.x, gPlayerInfo[player].oldPosition.y, 
+                          gPlayerInfo[player].oldPosition.z, gCoord.x, gCoord.y, gCoord.z) > 1000.0f)
+        {
+            stuckTimer[player] = 0.0f;
+            sideForce[player] = 0.0f;
+        }
+        else
+        {
+            stuckTimer[player] -= fps;
+        }
+    }
 
-		    r = theNode->Rot.y;												// get aim vector of car
-		    aimVec.x = -sin(r);
-		    aimVec.y = -cos(r);
-            cross = OGLVector2D_Cross(&pathVec, &aimVec);       			// the sign of the cross product will tell us which way to turn
-            dot = OGLVector2D_Dot(&pathVec, &aimVec);          				// also get dot product
-    		r = acos(dot);                     				// convert dot to angle
+		/* 3. PATH FOLLOWING (Normal operation) */
 
-    		if (r > (PI/14))								// see if outside of tolerance
-    		{
-				if (cross > 0.0f)
-					gPlayerInfo[player].analogSteering.x = -1.0f;
-				else
-					gPlayerInfo[player].analogSteering.x = 1.0f;
-            }
-		}
-		else
-		{
-			pathVec.x = 1;													// no path found, so set default values
-			pathVec.y = 0;
-		}
-		gPlayerInfo[player].pathVec = pathVec;								// keep a copy
+    else if (CalcPathVectorFromCoord(gCoord.x, gCoord.y, gCoord.z, &pathVec))
+    {
+        float cross, r;
+        OGLVector2D aimVec = {
+            .x = -sin(theNode->Rot.y),
+            .y = -cos(theNode->Rot.y)
+        };
+        
+        cross = OGLVector2D_Cross(&pathVec, &aimVec);
+        dot = OGLVector2D_Dot(&pathVec, &aimVec);
+        r = acos(dot);
+        
+        if (r > (PI/14))    // Outside tolerance angle
+        {
+            gPlayerInfo[player].analogSteering.x = (cross > 0.0f) ? -1.0f : 1.0f;
+        }
+        
+        gPlayerInfo[player].pathVec = pathVec;
+    }
 
+			/***********************/
+			/* ALTITUDE MANAGEMENT */
+			/***********************/
 
-	}
+    float terrainY = GetTerrainY(gCoord.x, gCoord.z);
+    float currentHeight = gCoord.y - terrainY;
+    
+    if (currentHeight > 4000.0f) {
+        gPlayerInfo[player].analogSteering.y = -1.0f;  // Push down if too high
+    } 
+    else if (currentHeight < 3500.0f && stuckTimer[player] <= 0.0f) {
+        gPlayerInfo[player].analogSteering.y = 0.0f;   // Neutral in safe zone
+    }
 
-			/* SEE IF NEED TO GO UP TO SWIM OVER OBSTACLE */
+			/**************************/
+			/* STEERING NORMALIZATION */
+			/**************************/
+			
+    if (stuckTimer[player] <= 0.0f && avoidTurn == 0)
+    {
+        // Smooth return to neutral steering
+        gPlayerInfo[player].analogSteering.x *= 0.8f;
+        if (fabs(gPlayerInfo[player].analogSteering.x) < 0.1f) {
+            gPlayerInfo[player].analogSteering.x = 0;
+        }
+    }
 
-	if (gPlayerInfo[player].reverseTimer > 0.0f)						// see if going in reverse
-	{
-		gPlayerInfo[player].analogSteering.y = 1.0f;
-		if ((gPlayerInfo[player].reverseTimer -= fps) < 0.0f)			// dec reverse timer
-			gPlayerInfo[player].reverseTimer = 0;
-	}
-//	else
-//	if ((gCoord.y - GetTerrainY(gCoord.x, gCoord.z)) > 4000.0f)			// keep from being too high
-//		gPlayerInfo[player].analogSteering.y = -1.0f;
 
 
 				/* SEE IF CPU PLAYER SHOULD ATTACK */
