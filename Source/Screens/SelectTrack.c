@@ -112,6 +112,15 @@ Boolean SelectSingleTrack(void)
 	SetupTrackSelectScreen();
 	MakeFadeEvent(true);
 
+	// Convert global track number to menu index
+    if (gLastSelection.lastSelectedTrack >= gBaseTrack) {
+        gSelectedTrackIndex = gLastSelection.lastSelectedTrack - gBaseTrack;
+        
+        // Probably overkill, but ensure it's within current menu bounds
+        if (gSelectedTrackIndex >= gNumTracksInSelection) {
+            gSelectedTrackIndex = 0;
+        }
+    }
 
 				/*************/
 				/* MAIN LOOP */
@@ -166,7 +175,17 @@ static void SetupTrackSelectScreen(void)
 OGLSetupInputType	viewDef;
 
 
-	gSelectedTrackIndex = 0;
+	// Paste in last selected track
+	if (gLastSelection.lastSelectedTrack >= gBaseTrack) 
+	{
+		// Could be written more simply, but just in case base track changes in future
+		gSelectedTrackIndex = gLastSelection.lastSelectedTrack - gBaseTrack; 
+	}
+	else 
+	{
+		gSelectedTrackIndex = 0; // Default to first track
+	}
+
 	gTrackName = nil;
 
 

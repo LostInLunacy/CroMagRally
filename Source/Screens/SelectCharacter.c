@@ -111,9 +111,18 @@ ObjNode	*multiplayerText = NULL;
 
 	gSelectedCharacterIndex = 0;
 
+
+	// Paste in last selected sex
+    if (gLastSelection.lastSelectedSex > 0) {
+        gSelectedCharacterIndex = gLastSelection.lastSelectedSex;
+    };
+
+
 			/**************/
 			/* SETUP VIEW */
 			/**************/
+
+	
 
 	OGL_NewViewDef(&viewDef);
 

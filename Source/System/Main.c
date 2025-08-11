@@ -70,6 +70,7 @@ Boolean				gTrackCompleted = false;
 float				gTrackCompletedCoolDownTimer = 0;
 
 int					gGameMode,gTheAge,gTrackNum;
+LastSelection 		gLastSelection = {0};					// initialise all last selection fields to zero
 
 
 			/* BATTLE MODE VARS */
@@ -281,6 +282,9 @@ select_track:
 	{
 		if (SelectSingleTrack())
 			return(true);
+
+		// Set last Track selection
+		gLastSelection.lastSelectedTrack = gTrackNum;
 	}
 
 
@@ -320,11 +324,19 @@ select_sex:
 	{
 		if (DoCharacterSelectScreen(0, true))					// determine sex
 			goto select_track;
+		
+		// Only save sex AFTER successful selection
+		gLastSelection.lastSelectedSex = gPlayerInfo[0].sex;
+		
 		if (DoVehicleSelectScreen(0, true))						// get vehicle for only player, player 0
 			goto select_sex;
-	}
 
-
+		// Only save vehicle AFTER successful selection
+		// Also don't save if Atlantis because that has its own vehicle
+		if (gTrackNum != TRACK_NUM_ATLANTIS) { 			  		
+				gLastSelection.lastSelectedVehicle = gPlayerInfo[0].vehicleType;
+			}
+		}
 
         /* LOAD ALL OF THE ART & STUFF */
 

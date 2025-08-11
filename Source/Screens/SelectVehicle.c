@@ -214,6 +214,11 @@ int					age;
 	gVehicleName = nil;
 	gSelectedVehicleIndex = 0;
 
+    // Paste in last selected vehicle
+    if (gLastSelection.lastSelectedVehicle > 0) {
+        gSelectedVehicleIndex = gLastSelection.lastSelectedVehicle;
+    }
+
 	for (int i = 0; i < NUM_VEHICLE_PARAMETERS; i++)
 		gBoneMeters[i] = nil;
 

@@ -30,6 +30,17 @@
 #define	MAX_SPECIAL_DATA_BYTES	(sizeof(uint64_t) * 8)
 
 
+/***************************/
+/* LAST SELECTION TRACKING */
+/***************************/
+
+typedef struct
+{
+    int     lastSelectedTrack;      // Last chosen track ID
+    int     lastSelectedSex;       // Last chosen character sex
+    int     lastSelectedVehicle;   // Last chosen vehicle type
+    Boolean requestRestart;        // Flag for restart requests
+} LastSelection;
 
 			/*********************/
 			/* SPLINE STRUCTURES */

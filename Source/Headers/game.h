@@ -104,6 +104,7 @@ extern int						gPolysThisFrame;
 extern int						gTheAge;
 extern int						gTrackNum;
 extern int						gVRAMUsedThisFrame;
+extern LastSelection            gLastSelection;
 extern long						gNumCheckpoints;
 extern long						gNumFences;
 extern long						gNumPaths;
