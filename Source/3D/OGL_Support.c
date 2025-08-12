@@ -1316,50 +1316,94 @@ void OGL_DisableLighting(void)
 
 /************************** DEBUG TEXT OBJECT **************************/
 
+static void AddLeadingWhitespace(char* buffer) // Helper function to add whitespace to left-side of debug display
+{
+    char* p = buffer;
+    while (*p) {
+        if (p == buffer || *(p-1) == '\n') {
+            memmove(p+1, p, strlen(p)+1);
+            *p = ' ';
+        }
+        p++;
+    }
+}
+
+
 static char* UpdateDebugText(void)
 {
-	static char debugTextBuffer[256];
-	extern short gNumFreeSupertiles;
-	extern int gFreeTwitches;
+    static char debugTextBuffer[512];
+    
+    // Always-safe basic info
+    int fps = (int)(gFramesPerSecond + .5f);
+    int objs = gNumObjectNodes;
 
-	SDL_snprintf(debugTextBuffer, sizeof(debugTextBuffer),
-		"FPS:\t%d"
-		"\nTRIS:\t%d"
-		"\nOBJS:\t%d"
-		"\nVRAM:\t%d\vK"
-		"\nTEX:\t%d"
-		"\nPTRS:\t%d"
-		"\nTILES:\t%d\v/%d"
-		"\nCHAN:\t%d\v/%d"
-		"\nUIFX:\t%d"
-		"\nRES:\t%d\vX\r%d\v/%d"
-		"\nAS\vTEER\r:\t%+.02f"
-		"\nSTEER:\t%+.02f%s"
-		"\nX:\t\t%d"
-		"\nZ:\t\t%d"
-		,
-		(int)(gFramesPerSecond + .5f),
-		gPolysThisFrame,
-		gNumObjectNodes,
-		gVRAMUsedThisFrame / 1024,
-		gNumTexturesAllocated,
-		gNumPointers,
-		MAX_SUPERTILES - gNumFreeSupertiles,
-		MAX_SUPERTILES,
-		GetNumBusyEffectChannels(),
-		MAX_CHANNELS,
-		MAX_TWITCHES - gFreeTwitches,
-		gGameWindowWidth,
-		gGameWindowHeight,
-		gNumSplitScreenPanes,
-		gPlayerInfo[0].analogSteering.x,
-		gPlayerInfo[0].steering,
-		gPlayerInfo[0].steering == gPlayerInfo[0].analogSteering.x? "": "*",
-		(int) gPlayerInfo[0].coord.x,
-		(int) gPlayerInfo[0].coord.z
-	);
+    // Check if we can safely show racing stats
+    extern Boolean gIsInGame;
+    int showRacingStats = gDebugMode && gIsInGame;
 
-	return debugTextBuffer;
+		
+    if (!showRacingStats)
+    {	
+			/* DEBUG INFO - NOT IN GAME */
+        SDL_snprintf(debugTextBuffer, sizeof(debugTextBuffer),
+            "FPS:\t%d\n"
+            "LAST TRACK:\t%d\n"
+            "LAST SEX:\t%s\n"
+            "LAST VEHICLE:\t%d",
+            fps,
+            gLastSelection.lastSelectedTrack,
+            gLastSelection.lastSelectedSex ? "Female" : "Male",
+            gLastSelection.lastSelectedVehicle);
+    }
+		
+    else
+    {
+			/* DEBUG INFO - IN GAME */
+        ObjNode* playerCar = gPlayerInfo[0].objNode;
+        CarStatsType* stats = &gPlayerInfo[0].carStats;
+        float speedDiff = playerCar->Speed3D - playerCar->Speed2D;
+        
+        SDL_snprintf(debugTextBuffer, sizeof(debugTextBuffer),
+            "FPS:\t%d" 							// FPS
+            "\nX/Z:\t\v%d/%d"					// X/Z
+            "\nY/F:\t\v%d/%.0f"					// Y/F
+            "\nLAP:\t%d/\v%d"					// Current lap / Total
+            "\nCPT:\t%d/\v%d"					// Current checkpoint / Total
+            "\nSTR\t\v%+.02f (RAW: %+.02f)"		// Steering / Raw
+            "\nPLN:\t%s"						// Planing
+            "\nSPD:\t%.0f/\v%.0f"				// Speed2D / 3D difference
+            "\nTHR:\t%4.0f \vRPM:%.0f"			// Throttle / RPM
+            "\n\vSPD:%.0f ACC:%.0f"				// Car stat: Speed, Acceleration
+            "\n\vTRA:%.2f SUS:%.2f",			// Car stat: Traction, Suspension
+            
+            // Values:
+            fps,                                // FPS
+            (int)gPlayerInfo[0].coord.x,		// X
+            (int)gPlayerInfo[0].coord.z,        // Z
+            (int)gPlayerInfo[0].coord.y,        // Y
+            gPlayerInfo[0].distToFloor,         // Floor
+            gPlayerInfo[0].lapNum,              // Current lap
+            gNumLapsThisRace,                   // Total laps
+            gPlayerInfo[0].checkpointNum,       // Current checkpoint
+            gNumCheckpoints,                    // Total checkpoints
+            gPlayerInfo[0].steering,            // Steering
+            gPlayerInfo[0].analogSteering.x,    // Raw steering
+            gPlayerInfo[0].isPlaning ? "!!" :   // Planing
+              (gPlayerInfo[0].tiresAreDragging ? "!" : ""),
+            playerCar->Speed2D,                 // Speed 2D
+            speedDiff,                          // Speed difference
+            gPlayerInfo[0].currentThrust,       // Throttle
+            gPlayerInfo[0].currentRPM * 10000.0f, 	// RPM
+            stats->maxSpeed,                    // Car stat: Speed
+            stats->acceleration,                // Car stat: Acceleration
+            stats->tireTraction,                // Car stat: Traction
+            stats->suspension                   // Car stat: Suspension
+        );
+    }
+
+    AddLeadingWhitespace(debugTextBuffer);
+
+    return debugTextBuffer;
 }
 
 static void MoveDebugText(ObjNode* theNode)
